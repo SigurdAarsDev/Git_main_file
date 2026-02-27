@@ -1,37 +1,38 @@
 from pymavlink import mavutil
 import time
 
-# Connect to SITL
-master = mavutil.mavlink_connection('udp:127.0.0.1:14550')
+# Connect to ArduSub
+master = mavutil.mavlink_connection('/dev/ttyACM0')
 master.wait_heartbeat()
-print("Connected to SITL")
+print("Connected to ArduSub")
 
-# Arm vehicle
-master.arducopter_arm()
-master.motors_armed_wait()
-print("Armed")
-
-# Disable SERVO9 function (optional safety)
-master.mav.param_set_send(
-    master.target_system,
-    master.target_component,
-    b'SERVO9_FUNCTION',
-    0,
-    mavutil.mavlink.MAV_PARAM_TYPE_INT32
-)
-
-time.sleep(1)
-
-# Send PWM to SERVO9
+# Arm the vehicle
 master.mav.command_long_send(
     master.target_system,
     master.target_component,
-    mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+    mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
     0,
-    9,        # servo number
-    1900,     # pwm
-    0,0,0,0,0
+    1,  # 1 = arm
+    0,0,0,0,0,0
 )
+time.sleep(2)
+print("Armed")
 
-print("PWM sent")
-time.sleep(5)
+# Send PWM to PWM Output 1 (AUX1)
+# Typical safe PWM range for ArduSub: 1100 - 1900
+for pwm in [0]:#, 0]:
+    master.mav.command_long_send(
+        master.target_system,
+        master.target_component,
+        mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+        0,
+        1,      # Servo channel 1 (PWM Output 1)
+        pwm,    # PWM value
+        0,0,0,0,0
+    )
+    print(f"PWM sent to channel 1: {pwm}")
+
+    end_time = time.time() + 1
+    while time.time() < end_time:
+        time.sleep(0.1)  # small chunks
+    print("Done")
